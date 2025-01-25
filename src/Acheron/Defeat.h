@@ -28,7 +28,7 @@ namespace Acheron
 		static std::vector<RE::Actor*> GetAllPacified(bool a_loadedonly);
 		static std::vector<RE::Actor*> GetAllDefeated(bool a_loadedonly);
 
-		static void ForEachVictim(std::function<VictimVistor(RE::FormID a_victimid, VictimData& a_data)> a_visitor);
+		static void ForEachVictim(std::function<VictimVistor(RE::FormID a_victimid, std::shared_ptr<VictimData> a_data)> a_visitor);
 		static std::optional<Defeat::VictimData> GetVictimData(RE::FormID a_formid);
 		static void DisableRecovery(bool a_loadedonly);
 
@@ -49,11 +49,13 @@ namespace Acheron
 		static void Delete(RE::FormID a_formid);
 
 	private:
-		static void PacifyUnsafe(RE::Actor* a_victim);
+		static void PacifyUnsafe(RE::Actor* a_victim, std::unique_lock<std::shared_mutex>& lock);
+		static void UndoPacifyLocked(RE::Actor* a_victim, std::unique_lock<std::shared_mutex>& lock);
 
 	private:
-		static inline std::map<RE::FormID, VictimData> Victims;
+		static inline std::map<RE::FormID, std::shared_ptr<VictimData>> Victims;
 		static inline std::set<RE::FormID> Pacified;
+		static inline std::shared_mutex _m;
 	};
 
 }	 // namespace Defeat
