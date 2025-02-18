@@ -95,7 +95,7 @@ namespace Acheron
 				"defeat (target: Actor) -> Defeat an actor, causing them to become unable to fight\n"
 				"rescue (bAndRelease: int = 1, target: Actor) -> Rescue (undo defeat) an actor, optionally also releasing them\n"
 				"isdefeated (target: Actor) -> Test if an actor is currently defeated\n"
-				"getpacified (target: Actor) -> List every actor that is currently defeated\n"
+				"getdefeated (target: Actor) -> List every actor that is currently defeated\n"
 				"pacify (target: Actor) -> Pacify an actor, disallowing them to join combat\n"
 				"release (target: Actor) -> Release (undo pacify) an actor\n"
 				"ispacified (target: Actor) -> Test is an actor is currently pacified\n"
