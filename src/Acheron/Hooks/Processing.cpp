@@ -1,13 +1,14 @@
 #include "Acheron/Hooks/Processing.h"
 
+#include "Acheron/Misc.h"
 #include "Acheron/Defeat.h"
 #include "Acheron/Resolution.h"
 #include "Serialization/EventManager.h"
 
 namespace Acheron
 {
-	Processing::AggressorInfo::AggressorInfo(RE::Actor* a_actor, RE::Actor* a_victim) :
-		actor(a_actor), legal(a_actor != nullptr)
+	Processing::AggressorInfo::AggressorInfo(RE::Actor* a_actor, RE::Actor* a_victim, const char* a_origin, const char* a_cause, RE::TESBoundObject* a_source, std::vector<RE::EffectSetting*> a_effects) :
+		actor(a_actor), legal(a_actor != nullptr), origin(a_origin), cause(a_cause), source(a_source), effects(a_effects)
 	{
 		assert(a_victim);
 		if (actor && actor->IsCommandedActor()) {
@@ -61,6 +62,17 @@ namespace Acheron
 	bool Processing::RegisterDefeat(RE::Actor* a_victim, const AggressorInfo& a_aggressor)
 	{
 		logger::info("Aggressor {:X} -> Register Defeat for Victim {:X}", a_aggressor ? a_aggressor->GetFormID() : 0, a_victim->GetFormID());
+		logger::info("Cause: {} from {}", a_aggressor.cause, a_aggressor.origin);
+		if (a_aggressor.source)
+			logger::info("Source: {} {:X} {} {}", a_aggressor.source->GetFormType(), a_aggressor.source->GetFormID(), GetEditorID(a_aggressor.source), a_aggressor.source->GetName());
+		if (a_aggressor.effects.size() > 0) {
+			auto out = fmt::memory_buffer();
+			fmt::format_to(std::back_inserter(out), "Effects: ");
+			for (auto& it: a_aggressor.effects) {
+				fmt::format_to(std::back_inserter(out), "{:X} {} {}, ", it->GetFormID(),  GetEditorID(it), it->GetFullName());
+			}
+			logger::info("{}", fmt::to_string(out));
+		}
 		assert(a_victim);
 		if (!a_victim->IsPlayerRef() && Settings::bNotifyDefeat) {
 			std::string base = fmt::format("{} has been defeated", a_victim->GetDisplayFullName());

@@ -80,4 +80,6 @@ namespace Acheron
 	void ToggleControls(RE::ControlMap* controlMap, RE::ControlMap::UEFlag a_flags, bool a_enable);
 	bool IsMovementControlsEnabled(RE::ControlMap* controlMap);
 
+	std::string GetEditorID(const RE::TESForm* a_form);
+
 }  // namespace Acheron

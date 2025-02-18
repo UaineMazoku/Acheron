@@ -7,11 +7,15 @@ namespace Acheron
 public:
 		struct AggressorInfo
 		{
-			AggressorInfo(RE::Actor* a_actor, RE::Actor* a_victim);
+			AggressorInfo(RE::Actor* a_actor, RE::Actor* a_victim, const char* origin, const char* cuase, RE::TESBoundObject* source = nullptr, std::vector<RE::EffectSetting*> effects = {});
 			~AggressorInfo() = default;
 
 			RE::Actor* actor;
 			bool legal;
+			RE::TESBoundObject* source;
+			std::vector<RE::EffectSetting*> effects;
+			const char* origin;
+			const char* cause;
 
 			constexpr RE::Actor* operator->() const { return actor; }
 			constexpr operator RE::Actor*() const { return actor; }

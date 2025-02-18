@@ -195,6 +195,7 @@ namespace Acheron
 			return;
 
 		float inc_damage = 0.0f;
+		std::vector<RE::EffectSetting*> damage_effects{};
 		for (const auto& effect : *effects) {
 			if (!effect || effect->flags.any(RE::ActiveEffect::Flag::kDispelled, RE::ActiveEffect::Flag::kInactive))
 				continue;
@@ -209,10 +210,11 @@ namespace Acheron
 			}
 			if (const float change = GetExpectedHealthModification(effect); change != 0) {
 				inc_damage += change / 20;	// damage value is per second
+				damage_effects.push_back(effect->GetBaseObject());
 			}
 		}
 		if (inc_damage < 0 && a_target->GetActorValue(RE::ActorValue::kHealth) <= fabs(inc_damage)) {
-			auto aggressor = Processing::AggressorInfo(nullptr, a_target);
+			auto aggressor = Processing::AggressorInfo(nullptr, a_target, "DamageOverTime", "Lethal", nullptr, damage_effects);
 			if (!Validation::ValidatePair(a_target, aggressor.actor))
 				return;
 			if (GetProcessType(aggressor.actor, true) != ProcessType::Lethal)
@@ -242,20 +244,28 @@ namespace Acheron
 		if (!Validation::ValidatePair(a_target, aggressor))
 			return HitResult::Allow;
 
+		const auto sourcePtr = a_hitData.sourceRef.get();
+		const auto source = sourcePtr ? sourcePtr.get() : nullptr;
+		const auto sourceBase = source ? source->GetBaseObject() : nullptr;
+
+		const char* cause{};
+		std::vector<RE::EffectSetting*> damage_effects{};
+
 		const float hp = a_target->GetActorValue(RE::ActorValue::kHealth);
-		auto dmg = a_hitData.totalDamage + fabs(GetIncomingEffectDamage(a_target));
+		auto dmg = a_hitData.totalDamage + fabs(GetIncomingEffectDamage(a_target, damage_effects));
 		AdjustByDifficultyMult(dmg, a_target->IsPlayerRef());
 		bool negate;
 		switch (GetProcessType(aggressor, hp <= dmg)) {
 		case ProcessType::Lethal:
 			negate = HandleLethal(a_target, aggressor);
+			cause = "Lethal";
 			break;
 		case ProcessType::Any:
 			if (!aggressor || a_hitData.totalDamage < 0.0001) {
 				negate = false;
 				break;
 			}
-			negate = [&]() {
+			if([&]() {
 				if (a_hitData.stagger == 0 || !Settings::bTraumaEnabled)
 					return false;
 				// f(x,y) = (x^2 * (1 + d * (1 - y))) / 64; with x in (-inf, inf), y in [0; 1], d in [0; inf)
@@ -278,12 +288,20 @@ namespace Acheron
 					}
 				}
 				return false;
-			}() || HandleExposed(a_target);
+			}()) {
+				negate = true;
+				cause = "Trauma";
+			} else if (HandleExposed(a_target)) {
+				negate = true;
+				cause = "Exposure";
+			} else {
+				negate = false;
+			}
 			break;
 		default:
 			negate = false;
 		}
-		if (negate && Processing::RegisterDefeat(a_target, { aggressor, a_target })) {
+		if (negate && Processing::RegisterDefeat(a_target, { aggressor, a_target, "WeaponHit", cause, sourceBase, damage_effects})) {
 			return HitResult::Prevent;
 		} else if (a_hitData.flags.none(RE::HitData::Flag::kBlocked, RE::HitData::Flag::kBlockWithWeapon)) {
 			ValidateStrip(a_target);
@@ -322,24 +340,26 @@ namespace Acheron
 				break;
 			}
 			if (Validation::CanProcessDamage()) {
-				auto caster = Processing::AggressorInfo(effect.caster.get().get(), target);
+				auto caster = Processing::AggressorInfo(effect.caster.get().get(), target, "MagicHit", {}, effect.spell, {base});
 				if (!Validation::ValidatePair(target, caster.actor))
 					break;
 
 				const float health = target->GetActorValue(RE::ActorValue::kHealth);
 				float dmg = base->data.secondaryAV == RE::ActorValue::kHealth ? effect.magnitude * base->data.secondAVWeight : effect.magnitude;
-				dmg += GetIncomingEffectDamage(target);	 // + GetTaperDamage(effect.magnitude, data->data);
+				dmg += GetIncomingEffectDamage(target, caster.effects);	 // + GetTaperDamage(effect.magnitude, data->data);
 				AdjustByDifficultyMult(dmg, target->IsPlayerRef());
 				bool negate;
 				switch (GetProcessType(caster.actor, health <= fabs(dmg) + 2)) {
 				case ProcessType::Lethal:
 					negate = HandleLethal(target, caster.actor);
+					caster.cause = "Lethal";
 					break;
 				case ProcessType::Any:
 					{
 						static Cache cache{ 800ms };
 						if (!cache.Debounce(target->formID)) {
 							negate = HandleExposed(target);
+							caster.cause = "Exposure";
 						} else {
 							negate = false;
 						}
@@ -394,7 +414,7 @@ namespace Acheron
 			return dmg;
 		if (a_this->HasEffectWithArchetype(RE::MagicTarget::Archetype::kEtherealize))
 			return dmg;
-		auto aggressor = Processing::AggressorInfo(nullptr, a_this);
+		auto aggressor = Processing::AggressorInfo(nullptr, a_this, "FallPhysics", "Lethal");
 		return Processing::RegisterDefeat(a_this, aggressor) ? 0.0f : dmg;
 	}
 
@@ -463,7 +483,7 @@ namespace Acheron
 		return false;
 	}
 
-	float Hooks::GetIncomingEffectDamage(RE::Actor* subject)
+	float Hooks::GetIncomingEffectDamage(RE::Actor* subject, std::vector<RE::EffectSetting*>& a_effects)
 	{
 		const auto effects = subject->GetActiveEffectList();
 		if (!effects)
@@ -475,6 +495,7 @@ namespace Acheron
 				continue;
 			else if (const float change = GetExpectedHealthModification(effect); change != 0.0f) {
 				ret += change;
+				a_effects.push_back(effect->GetBaseObject());
 			}
 		}
 		// if ret > 0, subject is getting healed

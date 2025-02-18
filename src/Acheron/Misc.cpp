@@ -157,6 +157,20 @@ namespace Acheron
 		return controlMap->IsMovementControlsEnabled();
 	}
 
+	std::string GetEditorID(const RE::TESForm* a_form)
+	{
+		using _GetFormEditorID = const char* (*)(std::uint32_t);
+		auto editorID = a_form->GetFormEditorID();
+		if (editorID && editorID[0] != '\0')
+			return editorID;
+
+		static auto tweaks = SKSE::WinAPI::GetModuleHandle(L"po3_Tweaks");
+		static auto func = reinterpret_cast<_GetFormEditorID>(GetProcAddress(tweaks, "GetFormEditorID"));
+		if (func) {
+			return func(a_form->formID);
+		}
+		return {};
+	}
 
 	// c @ Fenix31415
 	// Probably someone will find it useful.Didn't find it in clib. to call it :

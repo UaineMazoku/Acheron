@@ -51,7 +51,7 @@ namespace Acheron
 		static bool HandleExposed(RE::Actor* a_victim);
 		static float GetTaperDamage(const float magnitude, const RE::EffectSetting::EffectSettingData& data);
 		static float GetExpectedHealthModification(RE::ActiveEffect* a_effect);
-		static float GetIncomingEffectDamage(RE::Actor* subject);
+		static float GetIncomingEffectDamage(RE::Actor* subject, std::vector<RE::EffectSetting*>& a_effects);
 		static void CalcDamageOverTime(RE::Actor* a_target);
 		static void AdjustByDifficultyMult(float& damage, const bool playerPOV);
 		static void ValidateStrip(RE::Actor* target);
